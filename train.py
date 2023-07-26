@@ -121,6 +121,15 @@ def main(args):
     """4. training / validation loop"""
     print("\nStart training model {:s} ...".format(cfg['model_name']))
 
+    # set up evaluator
+    output_file = None
+    val_db_vars = val_dataset.get_attributes()
+    det_eval = ANETdetection(
+        val_dataset.json_file,
+        val_dataset.split[0],
+        tiou_thresholds=val_db_vars['tiou_thresholds']
+    )
+
     # start training
     max_epochs = cfg['opt'].get(
         'early_stop_epochs',
