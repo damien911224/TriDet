@@ -161,7 +161,6 @@ def main(args):
             evaluator=det_eval,
             output_file=output_file,
             ext_score_file=cfg['test_cfg']['ext_score_file'],
-            tb_writer=tb_writer,
             print_freq=args.print_freq)
 
         is_best = mAP >= best_mAP
