@@ -78,8 +78,8 @@ def main(args):
     model = make_meta_arch(cfg['model_name'], **cfg['model'])
     model_ = make_meta_arch(cfg['model_name'], **cfg['model'])
     # not ideal for multi GPU training, ok for now
-    model = nn.DataParallel(model, device_ids=this_cfg['devices'])
-    model_ = nn.DataParallel(model_, device_ids=this_cfg['devices'])
+    model = nn.DataParallel(model, device_ids=cfg['devices'])
+    model_ = nn.DataParallel(model_, device_ids=cfg['devices'])
     model_.load_state_dict(model.state_dict())
     # optimizer
     optimizer = make_optimizer(model, cfg['opt'])
