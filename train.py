@@ -65,11 +65,22 @@ def main(args):
     train_loader = make_data_loader(
         train_dataset, True, rng_generator, **cfg['loader'])
 
+    val_dataset = make_dataset(
+        cfg['dataset_name'], False, cfg['val_split'], **cfg['dataset']
+    )
+    # set bs = 1, and disable shuffle
+    val_loader = make_data_loader(
+        val_dataset, False, None, 1, cfg['loader']['num_workers']
+    )
+
     """3. create model, optimizer, and scheduler"""
     # model
-    model = make_meta_arch(cfg['model_name'], **cfg['model'])
+    model = make_meta_arch(this_cfg['model_name'], **this_cfg['model'])
+    model_ = make_meta_arch(this_cfg['model_name'], **this_cfg['model'])
     # not ideal for multi GPU training, ok for now
-    model = nn.DataParallel(model, device_ids=cfg['devices'])
+    model = nn.DataParallel(model, device_ids=this_cfg['devices'])
+    model_ = nn.DataParallel(model_, device_ids=this_cfg['devices'])
+    model_.load_state_dict(model.state_dict())
     # optimizer
     optimizer = make_optimizer(model, cfg['opt'])
     # schedule
@@ -78,7 +89,7 @@ def main(args):
 
     # enable model EMA
     print("Using model EMA ...")
-    model_ema = ModelEma(model)
+    model_ema = ModelEma(model_, copy_model=False)
 
     """4. Resume from model / Misc"""
     # resume from a checkpoint?
@@ -115,6 +126,12 @@ def main(args):
         'early_stop_epochs',
         cfg['opt']['epochs'] + cfg['opt']['warmup_epochs']
     )
+
+    is_best = False
+    best_mAP = -1
+    best_APs = None
+    best_epoch = 0
+    best_results = None
     for epoch in range(args.start_epoch, max_epochs):
         # train for one epoch
         train_one_epoch(
@@ -127,6 +144,23 @@ def main(args):
             clip_grad_l2norm=cfg['train_cfg']['clip_grad_l2norm'],
             print_freq=args.print_freq
         )
+
+        mAP, APs, results = valid_one_epoch(
+            val_loader,
+            model_ema.module,
+            epoch,
+            evaluator=det_eval,
+            output_file=output_file,
+            ext_score_file=cfg['test_cfg']['ext_score_file'],
+            tb_writer=tb_writer,
+            print_freq=args.print_freq)
+
+        is_best = mAP >= best_mAP
+        if is_best:
+            best_mAP = mAP
+            best_APs = APs
+            best_epoch = epoch
+            best_results = results
 
         # save ckpt once in a while
         if (
@@ -152,7 +186,44 @@ def main(args):
                 file_name='epoch_{:03d}.pth.tar'.format(epoch)
             )
 
-    print("All done!")
+    # print the results
+    result_txt = ""
+    result_txt += '[RESULTS] Action detection results on {:s} at E{:02d}.'.format(cfg['dataset_name'],
+                                                                                  best_epoch) + "\n"
+    block = ''
+    for tiou, tiou_mAP in zip(det_eval.tiou_thresholds, best_APs):
+        block += '\n|tIoU = {:.2f}: mAP = {:.2f} (%)'.format(tiou, tiou_mAP * 100)
+    result_txt += block + "\n"
+    result_txt += 'Avearge mAP: {:.2f} (%)'.format(best_mAP * 100)
+    print(result_txt)
+
+    result_dict = dict({"version": "VERSION 1.3",
+                        "results": dict(),
+                        "external_data":
+                            {"used": True,
+                             "details": "3D-CNN for feature extracting is pre-trained on Kinetics-400"}})
+
+    for r_i in range(len(best_results["video-id"])):
+        video_id = best_results["video-id"][r_i]
+        start_time = best_results["t-start"][r_i].item()
+        end_time = best_results["t-end"][r_i].item()
+        label = best_results["label"][r_i].item()
+        score = best_results["score"][r_i].item()
+
+        if video_id not in result_dict["results"].keys():
+            result_dict["results"][video_id] = list()
+
+        result_dict["results"][video_id].append(
+            {"label": label, "score": score, "segment": (start_time, end_time)})
+
+    result_json_path = os.path.join(ckpt_root_folder, "results.json")
+    with open(result_json_path, "w") as fp:
+        json.dump(result_dict, fp, indent=4, sort_keys=True)
+
+    result_text_path = os.path.join(ckpt_root_folder, "results.txt")
+    with open(result_text_path, "w") as fp:
+        fp.write(result_txt)
+
     return
 
 ################################################################################

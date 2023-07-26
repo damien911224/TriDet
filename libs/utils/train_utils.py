@@ -228,10 +228,13 @@ class AverageMeter(object):
 
 
 class ModelEma(torch.nn.Module):
-    def __init__(self, model, decay=0.999, device=None):
+    def __init__(self, model, decay=0.999, device=None, copy_model=True):
         super().__init__()
         # make a copy of the model for accumulating moving average of weights
-        self.module = deepcopy(model)
+        if copy_model:
+            self.module = deepcopy(model)
+        else:
+            self.module = model
         self.module.eval()
         self.decay = decay
         self.device = device  # perform ema on different device from model if set
@@ -408,7 +411,7 @@ def valid_one_epoch(
         if (ext_score_file is not None) and isinstance(ext_score_file, str):
             results = postprocess_results(results, ext_score_file)
         # call the evaluator
-        _, mAP = evaluator.evaluate(results, verbose=True)
+        APs, mAP = evaluator.evaluate(results, verbose=True)
     else:
         # dump to a pickle file that can be directly used for evaluation
         with open(output_file, "wb") as f:
@@ -419,4 +422,4 @@ def valid_one_epoch(
     if tb_writer is not None:
         tb_writer.add_scalar('validation/mAP', mAP, curr_epoch)
 
-    return mAP
+    return mAP, APs, results
