@@ -374,9 +374,9 @@ class TriDet(nn.Module):
         self.loss_normalizer_momentum = 0.9
 
         encoder_layer = DeformableTransformerEncoderLayer(fpn_dim, fpn_dim * 4, n_levels=len(self.fpn_strides))
-        self.deformable_encoder = DeformableTransformerEncoder(encoder_layer, 3)
+        self.deformable_encoder = DeformableTransformerEncoder(encoder_layer, 6)
 
-        self.t_embeddings = nn.Embedding(3000, fpn_dim)
+        self.t_embeddings = nn.Embedding(256, fpn_dim)
         self.level_embed = nn.Embedding(len(self.fpn_strides), fpn_dim)
 
     @property
