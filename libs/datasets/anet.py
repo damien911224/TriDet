@@ -2,6 +2,7 @@ import os
 import json
 import h5py
 import numpy as np
+import random
 
 import torch
 from torch.utils.data import Dataset
@@ -19,6 +20,8 @@ class ActivityNetDataset(Dataset):
         split,            # split, a tuple/list allowing concat of subsets
         feat_folder,      # folder for features
         json_file,        # json file for annotations
+        definition_file,  # json file for definition
+        zeroshot_split,   # zero-shot setting
         feat_stride,      # temporal stride of the feats
         num_frames,       # number of frames for each feat
         default_fps,      # default fps
@@ -30,7 +33,9 @@ class ActivityNetDataset(Dataset):
         num_classes,      # number of action categories
         file_prefix,      # feature file prefix if any
         file_ext,         # feature file extension if any
-        force_upsampling  # force to upsample to max_seq_len
+        force_upsampling,  # force to upsample to max_seq_len
+        use_definition,
+        data_percent
     ):
         # file path
         assert os.path.exists(feat_folder) and os.path.exists(json_file)
@@ -64,11 +69,34 @@ class ActivityNetDataset(Dataset):
         self.label_dict = None
         self.crop_ratio = crop_ratio
 
+        self.zeroshot_split = zeroshot_split
+        if self.zeroshot_split != "None":
+            percentage = int(self.zeroshot_split[0])
+            mode = "train" if self.is_training else "test"
+            split_file_path = os.path.join("splits", "train{:d}_test{:d}".format(percentage, 100 - percentage),
+                                           "ActivityNet1.3", mode, "{}.list".format(self.zeroshot_split[1]))
+            self.zeroshot_classes = list()
+            with open(split_file_path, "r") as fp:
+                while True:
+                    line = fp.readline()
+                    if not line:
+                        break
+                    label = line.rstrip()
+                    self.zeroshot_classes.append(label)
+        else:
+            self.zeroshot_classes = None
+
         # load database and select the subset
         dict_db, label_dict = self._load_json_db(self.json_file)
+        if self.zeroshot_split != "None":
+            self.zeroshot_label_indices = sorted([label_dict[label] for label in self.zeroshot_classes])
+        else:
+            self.zeroshot_label_indices = None
         # proposal vs action categories
         assert (num_classes == 1) or (len(label_dict) == num_classes)
         self.data_list = dict_db
+        if is_training and data_percent < 1.0:
+            self.data_list = random.sample(self.data_list, round(len(self.data_list) * float(data_percent)))
         self.label_dict = label_dict
 
         # dataset specific attributes
@@ -77,6 +105,16 @@ class ActivityNetDataset(Dataset):
             'tiou_thresholds': np.linspace(0.5, 0.95, 10),
             'empty_label_ids': []
         }
+
+        self.use_definition = use_definition
+        with open(definition_file, 'r') as fid:
+            self.definition = json.load(fid)
+
+        self.prompt_templates = ["an action of"]
+        # self.prompt_templates = ["an action of", "actions of", "a human action of", "human actions of",
+        #                          "an activity of", "a human activity of", "a clip of", "clips of",
+        #                          "a clip showing", "clips showing", "a video of", "videos of",
+        #                          "a video showing", "videos showing"]
 
     def get_attributes(self):
         return self.db_attributes
@@ -116,22 +154,51 @@ class ActivityNetDataset(Dataset):
                 num_acts = len(valid_acts)
                 segments = np.zeros([num_acts, 2], dtype=np.float32)
                 labels = np.zeros([num_acts, ], dtype=np.int64)
-                for idx, act in enumerate(valid_acts):
-                    segments[idx][0] = act['segment'][0]
-                    segments[idx][1] = act['segment'][1]
-                    if self.num_classes == 1:
-                        labels[idx] = 0
-                    else:
-                        labels[idx] = label_dict[act['label']]
-            else:
-                segments = None
-                labels = None
-            dict_db += ({'id': key,
-                         'fps' : fps,
-                         'duration' : duration,
-                         'segments' : segments,
-                         'labels' : labels
-            }, )
+                valid_num = 0
+
+                if num_acts:
+                    target_query = random.choice([act['label'] for act in valid_acts])
+                    for idx, act in enumerate(valid_acts):
+                        query = act['label']
+                        # if query != target_query:
+                        #     continue
+                        segments[idx][0] = act['segment'][0]
+                        segments[idx][1] = act['segment'][1]
+                        labels[idx] = label_dict[query]
+                        valid_num += 1
+
+                    if valid_num:
+                        dict_db += ({'id': key,
+                                     'fps': fps,
+                                     'duration': duration,
+                                     'segments': segments,
+                                     'labels': labels,
+                                     'queries': target_query.lower()
+                                     },)
+
+            # if ('annotations' in value) and (len(value['annotations']) > 0):
+            #     valid_acts = remove_duplicate_annotations(value['annotations'])
+            #     num_acts = len(valid_acts)
+            #     segments = np.zeros([num_acts, 2], dtype=np.float32)
+            #     labels = np.zeros([num_acts, ], dtype=np.int64)
+            #     for idx, act in enumerate(valid_acts):
+            #         segments[idx][0] = act['segment'][0]
+            #         segments[idx][1] = act['segment'][1]
+            #         if self.num_classes == 1:
+            #             labels[idx] = 0
+            #         else:
+            #             labels[idx] = label_dict[act['label']]
+            #     queries = act['label'].lower()
+            # else:
+            #     segments = None
+            #     labels = None
+            # dict_db += ({'id': key,
+            #              'fps': fps,
+            #              'duration': duration,
+            #              'segments': segments,
+            #              'labels': labels,
+            #              'queries': queries
+            #              },)
 
         return dict_db, label_dict
 
@@ -183,6 +250,7 @@ class ActivityNetDataset(Dataset):
             feat_stride = video_item['duration'] * video_item['fps'] / seq_len
             # center the features
             num_frames = feat_stride
+        feat_offset = 0.5 * num_frames / feat_stride
 
         # T x C -> C x T
         feats = torch.from_numpy(np.ascontiguousarray(feats.transpose()))
@@ -201,13 +269,18 @@ class ActivityNetDataset(Dataset):
         # ok to have small negative values here
         if video_item['segments'] is not None:
             segments = torch.from_numpy(
-                (video_item['segments'] * video_item['fps'] - 0.5 * num_frames) / feat_stride
+                video_item['segments'] * video_item['fps'] / feat_stride - feat_offset
             )
-            labels = torch.from_numpy(video_item['labels'])
+            # segments = torch.from_numpy(video_item['segments'] / video_item['duration'])
+            if self.num_classes == 1:
+                labels = torch.zeros_like(torch.from_numpy(video_item['labels']))
+            queries = video_item['queries']
+            tgt_label = queries
+
             # for activity net, we have a few videos with a bunch of missing frames
             # here is a quick fix for training
             if self.is_training:
-                vid_len = feats.shape[1] + 0.5 * num_frames / feat_stride
+                vid_len = feats.shape[1] + feat_offset
                 valid_seg_list, valid_label_list = [], []
                 for seg, label in zip(segments, labels):
                     if seg[0] >= vid_len:
@@ -215,8 +288,8 @@ class ActivityNetDataset(Dataset):
                         continue
                     # skip an action that is mostly outside of the feature map
                     ratio = (
-                        (min(seg[1].item(), vid_len) - seg[0].item())
-                        / (seg[1].item() - seg[0].item())
+                            (min(seg[1].item(), vid_len) - seg[0].item())
+                            / (seg[1].item() - seg[0].item())
                     )
                     if ratio >= self.trunc_thresh:
                         valid_seg_list.append(seg.clamp(max=vid_len))
@@ -225,13 +298,21 @@ class ActivityNetDataset(Dataset):
                 segments = torch.stack(valid_seg_list, dim=0)
                 labels = torch.cat(valid_label_list)
         else:
-            segments, labels = None, None
+            segments, labels, queries = None, None, None
+
+        # queries = feats.mean(-1)
+        queries = None
+        # queries = ["all actions"]
+
+        # basic = "all actions"
+        # condition = torch.zeros(dtype=torch.float32, size=(1 + 4 + 1 + 12 * 2, ))
 
         # return a data dict
         data_dict = {'video_id'        : video_item['id'],
                      'feats'           : feats,      # C x T
                      'segments'        : segments,   # N x 2
                      'labels'          : labels,     # N
+                     'queries'         : queries,    # N
                      'fps'             : video_item['fps'],
                      'duration'        : video_item['duration'],
                      'feat_stride'     : feat_stride,
@@ -241,7 +322,7 @@ class ActivityNetDataset(Dataset):
         # truncate the features during training
         if self.is_training and (segments is not None):
             data_dict = truncate_feats(
-                data_dict, self.max_seq_len, self.trunc_thresh, self.crop_ratio
+                data_dict, self.max_seq_len, self.trunc_thresh, feat_offset, self.crop_ratio
             )
 
         return data_dict
