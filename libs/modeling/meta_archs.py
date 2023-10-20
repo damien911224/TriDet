@@ -372,6 +372,8 @@ class TriDet(nn.Module):
         self.loss_normalizer = train_cfg['init_loss_norm']
         self.loss_normalizer_momentum = 0.9
 
+        self.query_embed = nn.Linear(512 + (1 + 4) + (1 + (max_seq_len // 16) * 2), fpn_dim)
+
     @property
     def device(self):
         # a hacky way to get the device type
@@ -422,13 +424,20 @@ class TriDet(nn.Module):
             decoded_offset_right = torch.matmul(pred_right_dis, right_range_idx)
             return torch.cat([decoded_offset_left, decoded_offset_right], dim=-1)
 
-    def forward(self, video_list):
+    def forward(self, video_list, queries=None):
         # batch the video list into feats (B, C, T) and masks (B, 1, T)
         batched_inputs, batched_masks = self.preprocessing(video_list)
 
         # forward the network (backbone -> neck -> heads)
         feats, masks = self.backbone(batched_inputs, batched_masks)
         fpn_feats, fpn_masks = self.neck(feats, masks)
+
+        if queries is not None:
+            query_embeds = self.query_embed(queries)
+            new_fpn_feats = list()
+            for feat in fpn_feats:
+                new_fpn_feats.append(feat + query_embeds[:, :, None])
+            fpn_feats = new_fpn_feats
 
         # compute the point coordinate along the FPN
         # this is used for computing the GT or decode the final results
