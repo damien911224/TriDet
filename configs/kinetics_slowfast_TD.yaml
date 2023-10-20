@@ -9,9 +9,9 @@ train_split: ['all']
 #train_split: ['train', 'val']
 val_split: ['test']
 dataset: {
-  json_file: ./data/kinetics/k400/annotations/kinetics-400.json,
+  json_file: /mnt/hdd0/kinetics-dataset/k400/annotations/kinetics-400.json,
   definition_file: ./definition/kinetics_definition.json,
-  feat_folder: ./data/kinetics/k400/slowfast_features,
+  feat_folder: /mnt/hdd1/kinetics/k400/slowfast_features,
   file_prefix: "",
   file_ext: .npy,
   num_classes: 1,
