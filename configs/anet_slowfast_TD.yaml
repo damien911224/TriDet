@@ -52,9 +52,9 @@ model: {
 opt: {
   learning_rate: 0.001,
   eta_min: 0.00005,
-  warmup_epochs: 10,
-  epochs: 5,
-  weight_decay: 0.04,
+  warmup_epochs: 5,
+  epochs: 10,
+  weight_decay: 0.05,
 }
 loader: {
   batch_size: 16,
