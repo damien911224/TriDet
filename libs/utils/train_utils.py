@@ -341,6 +341,132 @@ def train_one_epoch(
     print("[Train]: Epoch {:d} finished with lr={:.8f}\n".format(curr_epoch, lr))
     return
 
+def train_one_epoch_AF(
+        train_loader,
+        clip_model,
+        model,
+        optimizer,
+        scheduler,
+        curr_epoch,
+        model_ema=None,
+        clip_grad_l2norm=-1,
+        tb_writer=None,
+        print_freq=20
+):
+    """Training the model for one epoch"""
+    # set up meters
+    batch_time = AverageMeter()
+    losses_tracker = {}
+    # number of iterations per epoch
+    num_iters = len(train_loader)
+    # switch to train mode
+    model.train()
+
+    # main training loop
+    print("\n[Train: Epoch {:d} started".format(curr_epoch))
+    start = time.time()
+    for iter_idx, video_list in enumerate(train_loader, 0):
+        # zero out optim
+        optimizer.zero_grad(set_to_none=True)
+
+        if video_list[0]["queries"] is not None:
+            with torch.no_grad():
+                texts = [x["queries"] for x in video_list]
+                tokens = clip.tokenize(texts).cuda()
+                queries = clip_model.encode_text(tokens).float().detach()
+                conditions = torch.stack([x["conditions"] for x in video_list], dim=0).cuda()
+                queries = torch.cat((queries, conditions), dim=-1)
+        else:
+            queries = None
+
+        # forward / backward the model
+        losses = model(video_list, queries=queries)
+        losses['final_loss'].backward()
+        # gradient cliping (to stabilize training if necessary)
+        if clip_grad_l2norm > 0.0:
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(),
+                clip_grad_l2norm
+            )
+        # step optimizer / scheduler
+        optimizer.step()
+        scheduler.step()
+
+        if model_ema is not None:
+            model_ema.update(model)
+
+        # printing (only check the stats when necessary to avoid extra cost)
+        if (iter_idx != 0) and (iter_idx % print_freq) == 0:
+            # measure elapsed time (sync all kernels)
+            torch.cuda.synchronize()
+            batch_time.update((time.time() - start) / print_freq)
+            start = time.time()
+
+            # track all losses
+            for key, value in losses.items():
+                # init meter if necessary
+                if key not in losses_tracker:
+                    losses_tracker[key] = AverageMeter()
+                # update
+                losses_tracker[key].update(value.item())
+
+            # # log to tensor board
+            # lr = detr_scheduler.get_last_lr()[0]
+            # global_step = curr_epoch * num_iters + iter_idx
+            # if tb_writer is not None:
+            #     # learning rate (after stepping)
+            #     tb_writer.add_scalar(
+            #         'train/learning_rate',
+            #         lr,
+            #         global_step
+            #     )
+            #     # all losses
+            #     # tag_dict = {}
+            #     for key, value in losses.items():
+            #         # if key != "final_loss":
+            #         #     tag_dict[key] = value.val
+            #         tb_writer.add_scalar(
+            #             "train/" + key,
+            #             value.item(),
+            #             global_step
+            #         )
+
+            # print to terminal
+            block1 = 'Epoch: [{:03d}][{:05d}/{:05d}]'.format(
+                curr_epoch, iter_idx, num_iters
+            )
+            block2 = 'Time {:.2f} ({:.2f})'.format(
+                batch_time.val, batch_time.avg
+            )
+            block4 = ''
+            for key, value in losses_tracker.items():
+                block4 += '\t{:s} {:.2f} ({:.2f})'.format(
+                    key, value.val, value.avg
+                )
+
+            print('\t'.join([block1, block2, block4]))
+
+    # finish up and print
+    # log to tensor board
+    lr = scheduler.get_last_lr()[0]
+    global_step = curr_epoch
+    if tb_writer is not None:
+        # learning rate (after stepping)
+        tb_writer.add_scalar(
+            'train/learning_rate',
+            lr,
+            global_step
+        )
+        # all losses
+        for key, value in losses_tracker.items():
+            tb_writer.add_scalar(
+                "train/" + key,
+                value.avg,
+                global_step
+            )
+
+    print("[Train]: Epoch {:d} finished with lr={:.8f}\n".format(curr_epoch, lr))
+    return
 
 def valid_one_epoch(
         val_loader,
@@ -421,5 +547,90 @@ def valid_one_epoch(
     # log mAP to tb_writer
     if tb_writer is not None:
         tb_writer.add_scalar('validation/mAP', mAP, curr_epoch)
+
+    return mAP, APs, results
+
+def test_one_epoch_AF(
+        test_loader,
+        clip_model,
+        model,
+        curr_epoch,
+        test_cfg,
+        ext_score_file=None,
+        evaluator=None,
+        output_file=None,
+        tb_writer=None,
+        print_freq=20,
+        output_dir=None,
+):
+    """Test the model on the validation set"""
+    # either evaluate the results or save the results
+    assert (evaluator is not None) or (output_file is not None)
+
+    # set up meters
+    batch_time = AverageMeter()
+    # switch to evaluate mode
+    model.eval()
+    # dict for results (for our evaluation code)
+    results = {
+        'video-id': [],
+        't-start': [],
+        't-end': [],
+        'label': [],
+        'score': []
+    }
+
+    # loop over validation set
+    start = time.time()
+    for iter_idx, video_list in enumerate(test_loader, 0):
+        # forward the model (wo. grad)
+        with torch.no_grad():
+            output = model(video_list)
+
+            # unpack the results into ANet format
+            num_vids = len(output)
+            for vid_idx in range(num_vids):
+                if output[vid_idx]['segments'].shape[0] > 0:
+                    results['video-id'].extend(
+                        [output[vid_idx]['video_id']] *
+                        output[vid_idx]['segments'].shape[0]
+                    )
+                    results['t-start'].append(output[vid_idx]['segments'][:, 0])
+                    results['t-end'].append(output[vid_idx]['segments'][:, 1])
+                    results['label'].append(output[vid_idx]['labels'])
+                    results['score'].append(output[vid_idx]['scores'])
+
+        # printing
+        if (iter_idx != 0) and iter_idx % (print_freq) == 0:
+            # measure elapsed time (sync all kernels)
+            torch.cuda.synchronize()
+            batch_time.update((time.time() - start) / print_freq)
+            start = time.time()
+
+            # print timing
+            print('Test: [{0:05d}/{1:05d}]\t'
+                  'Time {batch_time.val:.2f} ({batch_time.avg:.2f})'.format(
+                iter_idx, len(test_loader), batch_time=batch_time))
+
+    # gather all stats and evaluate
+    results['t-start'] = torch.cat(results['t-start']).numpy()
+    results['t-end'] = torch.cat(results['t-end']).numpy()
+    results['label'] = torch.cat(results['label']).numpy()
+    results['score'] = torch.cat(results['score']).numpy()
+
+    if evaluator is not None:
+        if (ext_score_file is not None) and isinstance(ext_score_file, str):
+            results = postprocess_results(results, ext_score_file)
+        # call the evaluator
+        APs, mAP = evaluator.evaluate(results, verbose=True)
+    else:
+        # dump to a pickle file that can be directly used for evaluation
+        with open(output_file, "wb") as f:
+            pickle.dump(results, f)
+        APs, mAP = None, 0.0
+
+    # log mAP to tb_writer
+    if tb_writer is not None:
+        tb_writer.add_scalar('test/mAP', mAP, curr_epoch)
 
     return mAP, APs, results
