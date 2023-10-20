@@ -105,7 +105,7 @@ class KineticsDataset(Dataset):
             self.label_dict[key] = i
             self.label_inverse_dict[i] = key
 
-        self.class_sim = np.load("./definition/semantic_similarity.npy")
+        # self.class_sim = np.load("./definition/semantic_similarity.npy")
 
     def get_attributes(self):
         return self.db_attributes
