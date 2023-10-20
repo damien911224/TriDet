@@ -21,9 +21,6 @@ from libs.modeling import make_meta_arch
 from libs.utils import (train_one_epoch_AF, test_one_epoch_AF, ANETdetection,
                         save_checkpoint, make_optimizer, make_scheduler,
                         fix_random_seed, ModelEma)
-# from libs.modeling.detr import build_dino
-from libs.modeling.DABDETR import build
-# from libs.modeling.tadtr import build
 import json
 import clip
 
