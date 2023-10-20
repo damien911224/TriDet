@@ -13,6 +13,7 @@ from .lr_schedulers import LinearWarmupMultiStepLR, LinearWarmupCosineAnnealingL
 from .postprocessing import postprocess_results
 from ..modeling import MaskedConv1D, Scale, AffineDropPath, LayerNorm
 
+import clip
 
 ################################################################################
 def fix_random_seed(seed, include_cuda=True):
