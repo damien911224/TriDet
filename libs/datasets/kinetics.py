@@ -20,6 +20,7 @@ class KineticsDataset(Dataset):
         split,            # split, a tuple/list allowing concat of subsets
         feat_folder,      # folder for features
         json_file,        # json file for annotations
+        definition_file,  # json file for definition
         feat_stride,      # temporal stride of the feats
         num_frames,       # number of frames for each feat
         default_fps,      # default fps
@@ -83,6 +84,10 @@ class KineticsDataset(Dataset):
             'tiou_thresholds': np.linspace(0.5, 0.95, 10),
             'empty_label_ids': []
         }
+
+        self.use_definition = use_definition
+        with open(definition_file, 'r') as fid:
+            self.definition = json.load(fid)
 
         self.prompt_templates = ["an action of"]
         # self.prompt_templates = ["an action of", "actions of", "a human action of", "human actions of",
