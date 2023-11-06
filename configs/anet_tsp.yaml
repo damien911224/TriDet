@@ -4,6 +4,7 @@ val_split: [ 'validation' ]
 dataset: {
 #  json_file: ./data/anet_1.3/annotations/anet1.3_tsp_filtered.json,
   json_file: ./data/anet_1.3/annotations/anet1.3_i3d_filtered.json,
+  definition_file: /mnt/ssd0/VAD/definition/kinetics_definition.json,
   zeroshot_split: None,
   feat_folder: ./data/anet_1.3/tsp_features,
   file_prefix: v_,
