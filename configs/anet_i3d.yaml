@@ -18,6 +18,7 @@ dataset: {
   input_dim: 2048,
   feat_stride: 16,
   num_frames: 16,
+  default_fps: 25,
   trunc_thresh: 0.5,
   crop_ratio: [0.9, 1.0],
   # upsample the features to a fixed length of 192
