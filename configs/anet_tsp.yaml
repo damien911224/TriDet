@@ -4,6 +4,7 @@ val_split: [ 'validation' ]
 dataset: {
 #  json_file: ./data/anet_1.3/annotations/anet1.3_tsp_filtered.json,
   json_file: ./data/anet_1.3/annotations/anet1.3_i3d_filtered.json,
+  zeroshot_split: None,
   feat_folder: ./data/anet_1.3/tsp_features,
   file_prefix: v_,
   file_ext: .npy,
@@ -15,6 +16,8 @@ dataset: {
   trunc_thresh: 0.5,
   crop_ratio: [ 0.9, 1.0 ],
   max_seq_len: 768,
+  use_definition: False,
+  data_percent: 1.0,
 }
 model: {
   fpn_type: identity,
