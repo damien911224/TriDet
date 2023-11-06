@@ -19,6 +19,7 @@ dataset: {
   max_seq_len: 768,
   use_definition: False,
   data_percent: 1.0,
+  force_upsampling: True,
 }
 model: {
   fpn_type: identity,
