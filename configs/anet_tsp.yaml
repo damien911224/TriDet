@@ -41,8 +41,8 @@ model: {
 opt: {
   learning_rate: 0.001,
   eta_min: 0.00005,
-  warmup_epochs: 5, # 5
-  epochs: 10, # 5
+  warmup_epochs: 10, # 5
+  epochs: 5, # 5
   weight_decay: 0.04,
 }
 loader: {
