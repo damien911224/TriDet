@@ -375,9 +375,6 @@ class TriDet(nn.Module):
 
         self.query_embed = nn.Linear(512 + (1 + 4) + (1 + (max_seq_len // 16) * 2), fpn_dim)
 
-        self.upscale = Upscale(fpn_levels=len(self.fpn_strides), feat_dim=fpn_dim)
-        self.scaletime_blocks = nn.Sequential(*[ScaleTime(channels=fpn_dim) for _ in range(3)])
-
         encoder_layer = DeformableTransformerEncoderLayer(fpn_dim, fpn_dim * 4, n_levels=len(self.fpn_strides))
         self.deformable_encoder = DeformableTransformerEncoder(encoder_layer, 3)
 
