@@ -64,14 +64,14 @@ def main(args):
 
     # data loaders
     train_loader = make_data_loader(
-        train_dataset, True, rng_generator, **cfg['loader'])
+        train_dataset, True, True, rng_generator, **cfg['loader'])
 
     val_dataset = make_dataset(
         cfg['dataset_name'], False, cfg['val_split'], **cfg['dataset']
     )
     # set bs = 1, and disable shuffle
     val_loader = make_data_loader(
-        val_dataset, False, None, 1, cfg['loader']['num_workers']
+        val_dataset, False, False, None, 1, cfg['loader']['num_workers']
     )
 
     """3. create model, optimizer, and scheduler"""
