@@ -77,6 +77,17 @@ def main(args):
     """3. create model, optimizer, and scheduler"""
     # model
     model = make_meta_arch(cfg['model_name'], **cfg['model'])
+
+    checkpoint = torch.load(os.path.join(ckpt_root_folder, "pretrain/epoch_014.pth.tar"))
+    # checkpoint = torch.load(os.path.join("ckpt/kinetics_slowfast_AF_base_origin_filtered", "pretrain/epoch_010.pth.tar"))
+    filtered_ckpt = dict()
+    for k, v in checkpoint['state_dict_ema'].items():
+        # if "query_embed" not in k:
+        if "cls_head.cls_head" not in k and "query_embed" not in k:
+            filtered_ckpt[k] = v
+    model.load_state_dict(filtered_ckpt, strict=False)
+    del checkpoint
+
     model_ = make_meta_arch(cfg['model_name'], **cfg['model'])
     # not ideal for multi GPU training, ok for now
     model = nn.DataParallel(model, device_ids=cfg['devices'])
