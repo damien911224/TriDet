@@ -147,8 +147,8 @@ def main(args):
     """5. fine-tuning loop"""
     # test_cfg = load_config("configs/anet_i3d_AF.yaml")
     # test_cfg = load_config("configs/anet_slowfast_AF.yaml")
-    test_cfg = load_config("configs/anet_slowfast_TD.yaml")
-    # test_cfg = load_config("configs/thumos_slowfast_AF.yaml")
+    # test_cfg = load_config("configs/anet_slowfast_TD.yaml")
+    test_cfg = load_config("configs/thumos_slowfast_AF.yaml")
     test_dataset = make_dataset(test_cfg['dataset_name'], False, test_cfg['val_split'], **test_cfg['dataset'])
     # set bs = 1, and disable shuffle
     test_loader = make_data_loader(test_dataset, False, False, None, 1, cfg['loader']['num_workers'])
@@ -169,12 +169,12 @@ def main(args):
     # not ideal for multi GPU training, ok for now
     model = nn.DataParallel(model, device_ids=cfg['devices'])
 
-    checkpoint = torch.load(os.path.join(ckpt_root_folder, "pretrain/epoch_014.pth.tar"))
+    checkpoint = torch.load(os.path.join(ckpt_root_folder, "pretrain/epoch_009.pth.tar"))
     # checkpoint = torch.load(os.path.join("ckpt/kinetics_slowfast_AF_base_origin_filtered", "pretrain/epoch_010.pth.tar"))
     filtered_ckpt = dict()
     for k, v in checkpoint['state_dict_ema'].items():
-        if "query_embed" not in k:
-        # if "cls_head.cls_head" not in k and "query_embed" not in k:
+        # if "query_embed" not in k:
+        if "cls_head.cls_head" not in k and "query_embed" not in k:
             filtered_ckpt[k] = v
     model.load_state_dict(filtered_ckpt, strict=False)
     del checkpoint
