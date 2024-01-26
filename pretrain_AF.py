@@ -103,43 +103,43 @@ def main(args):
     # tb_writer = None
     tb_writer = SummaryWriter(os.path.join(ckpt_folder, 'logs'))
 
-    # is_best = False
-    # for epoch in range(args.start_epoch, max_epochs):
-    #     # train for one epoch
-    #     train_one_epoch_AF(
-    #         train_loader,
-    #         clip_model,
-    #         model,
-    #         optimizer,
-    #         scheduler,
-    #         epoch,
-    #         model_ema=model_ema,
-    #         clip_grad_l2norm=cfg['train_cfg']['clip_grad_l2norm'],
-    #         tb_writer=tb_writer,
-    #         print_freq=args.print_freq)
-    #
-    #     if (
-    #             (epoch == max_epochs - 1) or
-    #             is_best or
-    #             (
-    #                     (args.ckpt_freq > 0) and
-    #                     (epoch % args.ckpt_freq == 0) and
-    #                     (epoch > 0)
-    #             )
-    #     ):
-    #         save_states = {
-    #             'epoch': epoch,
-    #             'state_dict': model.state_dict(),
-    #             'scheduler': scheduler.state_dict(),
-    #             'optimizer': optimizer.state_dict()
-    #         }
-    #         save_states['state_dict_ema'] = model_ema.module.state_dict()
-    #         save_checkpoint(
-    #             save_states,
-    #             is_best,
-    #             file_folder=ckpt_folder,
-    #             file_name='epoch_{:03d}.pth.tar'.format(epoch)
-    #         )
+    is_best = False
+    for epoch in range(args.start_epoch, max_epochs):
+        # train for one epoch
+        train_one_epoch_AF(
+            train_loader,
+            clip_model,
+            model,
+            optimizer,
+            scheduler,
+            epoch,
+            model_ema=model_ema,
+            clip_grad_l2norm=cfg['train_cfg']['clip_grad_l2norm'],
+            tb_writer=tb_writer,
+            print_freq=args.print_freq)
+
+        if (
+                (epoch == max_epochs - 1) or
+                is_best or
+                (
+                        (args.ckpt_freq > 0) and
+                        (epoch % args.ckpt_freq == 0) and
+                        (epoch > 0)
+                )
+        ):
+            save_states = {
+                'epoch': epoch,
+                'state_dict': model.state_dict(),
+                'scheduler': scheduler.state_dict(),
+                'optimizer': optimizer.state_dict()
+            }
+            save_states['state_dict_ema'] = model_ema.module.state_dict()
+            save_checkpoint(
+                save_states,
+                is_best,
+                file_folder=ckpt_folder,
+                file_name='epoch_{:03d}.pth.tar'.format(epoch)
+            )
 
     if tb_writer is not None:
         tb_writer.close()
