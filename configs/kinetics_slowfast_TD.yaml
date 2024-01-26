@@ -70,7 +70,7 @@ opt: {
   weight_decay: 0.05, # 0.05
 }
 loader: {
-  batch_size: 32, # 256
+  batch_size: 16, # 256
   num_workers: 24, # 24
 }
 train_cfg: {
