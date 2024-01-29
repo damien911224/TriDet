@@ -15,7 +15,7 @@ dataset: {
   file_prefix: "",
   file_ext: .npy,
   num_classes: 1,
-  input_dim: 2304,
+  input_dim: 2048,
   feat_stride: 16,
   num_frames: 16,
   default_fps: 25,
