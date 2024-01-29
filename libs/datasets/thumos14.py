@@ -172,6 +172,7 @@ class THUMOS14Dataset(Dataset):
                      'feats'           : feats,      # C x T
                      'segments'        : segments,   # N x 2
                      'labels'          : labels,     # N
+                     'queries'         : None,
                      'fps'             : video_item['fps'],
                      'duration'        : video_item['duration'],
                      'feat_stride'     : feat_stride,
