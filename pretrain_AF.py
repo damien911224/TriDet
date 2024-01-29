@@ -175,7 +175,7 @@ def main(args):
     filtered_ckpt = dict()
     for k, v in checkpoint['state_dict_ema'].items():
         # if "query_embed" not in k:
-        if "cls_head.cls_head" not in k and "query_embed" not in k:
+        if "cls_head" not in k and "query_embed" not in k:
             filtered_ckpt[k] = v
     model.load_state_dict(filtered_ckpt, strict=False)
     del checkpoint
