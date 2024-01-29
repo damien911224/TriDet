@@ -11,7 +11,7 @@ val_split: ['test']
 dataset: {
   json_file: /mnt/hdd0/kinetics-dataset/k400/annotations/kinetics-400.json,
   definition_file: /mnt/ssd0/VAD/definition/kinetics_definition.json,
-  feat_folder: /mnt/hdd1/kinetics/k400/i3d_features_T16S16,
+  feat_folder: /mnt/hdd1/kinetics/k400/i3d_features_T16S8,
   file_prefix: "",
   file_ext: .npy,
   num_classes: 1,
@@ -23,7 +23,7 @@ dataset: {
   crop_ratio: [0.9, 1.0],
   # upsample the features to a fixed length of 384
 #  max_seq_len: 384, # 384
-  max_seq_len: 192, # 384
+  max_seq_len: 2304, # 384
   force_upsampling: True,
   use_definition: False,
 }
