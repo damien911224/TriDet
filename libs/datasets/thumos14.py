@@ -171,6 +171,7 @@ class THUMOS14Dataset(Dataset):
         data_dict = {'video_id'        : video_item['id'],
                      'feats'           : feats,      # C x T
                      'segments'        : segments,   # N x 2
+                     'queries'         : None,
                      'labels'          : labels,     # N
                      'fps'             : video_item['fps'],
                      'duration'        : video_item['duration'],
