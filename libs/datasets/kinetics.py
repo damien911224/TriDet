@@ -225,7 +225,7 @@ class KineticsDataset(Dataset):
             src_feats = np.load(os.path.join(self.feat_folder, self.file_prefix + item['id'] + self.file_ext), allow_pickle=True)
             tgt_size = random.choice(range(1, len(src_feats) + 1))
             src_s_i = random.choice(range(0, len(src_feats) - tgt_size + 1))
-            tgt_s_i = random.choice(range(boundaries[b_i], boundaries[b_i + 1] - tgt_size + 1))
+            tgt_s_i = random.choice(range(boundaries[b_i], max(boundaries[b_i + 1] - tgt_size + 1, boundaries[b_i] + 1)))
             for f_i in range(tgt_size):
                 feats[(tgt_s_i + f_i) % len(feats)] = src_feats[(src_s_i + f_i) % len(src_feats)]
                 targets[(tgt_s_i + f_i) % len(targets)] = self.label_dict[item["label"]]
