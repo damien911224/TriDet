@@ -154,7 +154,6 @@ class THUMOS14Dataset(Dataset):
         # deal with downsampling (= increased feat stride)
         feats = feats[::self.downsample_rate, :]
         feat_stride = self.feat_stride * self.downsample_rate
-        feat_offset = 0.5 * self.num_frames / feat_stride
         # T x C -> C x T
         feats = torch.from_numpy(np.ascontiguousarray(feats.transpose()))
 
@@ -162,7 +161,7 @@ class THUMOS14Dataset(Dataset):
         # ok to have small negative values here
         if video_item['segments'] is not None:
             segments = torch.from_numpy(
-                video_item['segments'] * video_item['fps'] / feat_stride - feat_offset
+                (video_item['segments'] * video_item['fps'] - 0.5 * self.num_frames) / feat_stride
             )
             labels = torch.from_numpy(video_item['labels'])
         else:
@@ -172,7 +171,6 @@ class THUMOS14Dataset(Dataset):
         data_dict = {'video_id'        : video_item['id'],
                      'feats'           : feats,      # C x T
                      'segments'        : segments,   # N x 2
-                     'queries'         : None,
                      'labels'          : labels,     # N
                      'fps'             : video_item['fps'],
                      'duration'        : video_item['duration'],
@@ -182,7 +180,7 @@ class THUMOS14Dataset(Dataset):
         # truncate the features during training
         if self.is_training and (segments is not None):
             data_dict = truncate_feats(
-                data_dict, self.max_seq_len, self.trunc_thresh, feat_offset, self.crop_ratio
+                data_dict, self.max_seq_len, self.trunc_thresh, self.crop_ratio
             )
 
         return data_dict
