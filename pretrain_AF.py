@@ -171,7 +171,7 @@ def main(args):
     model = nn.DataParallel(model, device_ids=cfg['devices'])
 
     # checkpoint = torch.load(os.path.join(ckpt_root_folder, "pretrain/epoch_009.pth.tar"))
-    checkpoint = torch.load(os.path.join("ckpt/kinetics_slowfast_TD_LTP_Re", "pretrain/epoch_014.pth.tar"))
+    checkpoint = torch.load(os.path.join("ckpt/kinetics_slowfast_TD_LTP_Re", "pretrain/epoch_009.pth.tar"))
     filtered_ckpt = dict()
     for k, v in checkpoint['state_dict_ema'].items():
         # if "query_embed" not in k:
