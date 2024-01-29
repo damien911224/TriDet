@@ -148,8 +148,9 @@ def main(args):
     # test_cfg = load_config("configs/anet_i3d_AF.yaml")
     # test_cfg = load_config("configs/anet_slowfast_AF.yaml")
     # test_cfg = load_config("configs/anet_slowfast_TD.yaml")
+    test_cfg = load_config("configs/thumos_i3d.yaml")
     # test_cfg = load_config("configs/thumos_slowfast_AF.yaml")
-    test_cfg = load_config("configs/thumos_slowfast_TD.yaml")
+    # test_cfg = load_config("configs/thumos_slowfast_TD.yaml")
     test_dataset = make_dataset(test_cfg['dataset_name'], False, test_cfg['val_split'], **test_cfg['dataset'])
     # set bs = 1, and disable shuffle
     test_loader = make_data_loader(test_dataset, False, False, None, 1, cfg['loader']['num_workers'])
