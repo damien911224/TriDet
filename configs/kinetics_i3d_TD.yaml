@@ -23,7 +23,7 @@ dataset: {
   crop_ratio: [0.9, 1.0],
   # upsample the features to a fixed length of 384
 #  max_seq_len: 384, # 384
-  max_seq_len: 2304, # 384
+  max_seq_len: 192, # 384
   force_upsampling: True,
   use_definition: False,
 }
