@@ -11,7 +11,7 @@ val_split: ['test']
 dataset: {
   json_file: /mnt/hdd0/kinetics-dataset/k400/annotations/kinetics-400.json,
   definition_file: /mnt/ssd0/VAD/definition/kinetics_definition.json,
-  feat_folder: /mnt/hdd1/kinetics/k400/i3d_features_T16S8,
+  feat_folder: /mnt/hdd1/kinetics-dataset/k400/i3d_features,
   file_prefix: "",
   file_ext: .npy,
   num_classes: 1,
@@ -70,7 +70,7 @@ opt: {
   weight_decay: 0.05, # 0.05
 }
 loader: {
-  batch_size: 32, # 256
+  batch_size: 128, # 256
   num_workers: 24, # 24
 }
 train_cfg: {
